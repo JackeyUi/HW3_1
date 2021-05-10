@@ -15,6 +15,13 @@
 #include "tensorflow/lite/schema/schema_generated.h"
 #include "tensorflow/lite/version.h"
 
+#include "uLCD_4DGL.h"
+
+uLCD_4DGL uLCD(D1, D0, D2);
+
+int GV = 0;
+int dGU = 1;
+char src[10];
 
 EventQueue qGUI(32 * EVENTS_EVENT_SIZE);
 Thread tGUI(osPriorityNormal, 4 * OS_STACK_SIZE);
@@ -39,6 +46,11 @@ void doGUI(Arguments *in, Reply *out);
 RPCFunction rpcGUI(&doGUI, "doGUI");
 //RPCFunction rpcANG(&doANG, "doANG");
 BufferedSerial pc(USBTX, USBRX);
+
+
+void flip1() {
+    dGU = !dGU;
+}
 
 int PredictGesture(float* output) {
   // How many times the most recent gesture has been matched in a row
@@ -114,7 +126,10 @@ void close_mqtt() {
 
 int main() {
  
-
+  uLCD.text_width(4); //4X size text
+  uLCD.text_height(4);
+  uLCD.color(RED);
+  printf("Set up uLCD.\r\n");
     wifi = WiFiInterface::get_default_instance();
     if (!wifi) {
             printf("ERROR: No WiFiInterface found.\r\n");
@@ -168,6 +183,8 @@ int main() {
    FILE *devin = fdopen(&pc, "r");
    FILE *devout = fdopen(&pc, "w");
 
+    mqtt_thread.start(callback(&mqtt_queue, &EventQueue::dispatch_forever));
+    btn2.rise(mqtt_queue.event(&publish_message, &client));
    while(1) {
       memset(buf, 0, 256);
       for (int i = 0; ; i++) {
@@ -181,10 +198,13 @@ int main() {
       //Call the static call method on the RPC class
       RPC::call(buf, outbuf);
       printf("%s\r\n", outbuf);
+      if(dGU = 0) {
+        mqtt_queue.event(&publish_message, &client);
+        dGU = 1;
+      } 
    }
 
-    mqtt_thread.start(callback(&mqtt_queue, &EventQueue::dispatch_forever));
-    btn2.rise(mqtt_queue.event(&publish_message, &client));
+
     //btn3.rise(&close_mqtt);
 
     return 0;
@@ -240,7 +260,7 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
   error_reporter->Report("Set up successful...\n");
 
  
- while (true) {
+ while (dGU) {
 
     // Attempt to read new data from the accelerometer
     got_data = ReadAccelerometer(error_reporter, model_input->data.f,
@@ -265,15 +285,18 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
 
     // Clear the buffer next time we read data
     should_clear_buffer = gesture_index < label_num;
-    char src[10];
     // Produce an output
     if (gesture_index < label_num) {
-      //strcpy(src,config.output_message[gesture_index]);
+      strcpy(src,config.output_message[gesture_index]);
       error_reporter->Report(config.output_message[gesture_index]);
-      //printf("%s\n",src);
+      printf("%d\n", dGU);
+      uLCD.locate(1,1);
+      uLCD.printf("%s", src);
     }
- 
+    btn2.rise(&flip1);
+    
   }
+  printf("stopping gesture UI\n");
 }
 
 void doGUI(Arguments *in, Reply *out) {
