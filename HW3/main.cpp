@@ -16,7 +16,8 @@
 #include "tensorflow/lite/version.h"
 
 
-EventQueue qGUI(32 * EVENTS_EVENT_SIZE)
+EventQueue qGUI(32 * EVENTS_EVENT_SIZE);
+Thread tGUI(osPriorityNormal, 4 * OS_STACK_SIZE);
 
 // GLOBAL VARIABLES
 constexpr int kTensorArenaSize = 20 * 1024;
@@ -189,7 +190,7 @@ int main() {
     return 0;
 }
 
-void doGUI(Arguments *in, Reply *out) {
+void GUIM() {
   // Whether we should clear the buffer next time we fetch data
   bool should_clear_buffer = false;
   bool got_data = false;
@@ -273,4 +274,8 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
     }
  
   }
+}
+
+void doGUI(Arguments *in, Reply *out) {
+    tGUI.start(GUIM);
 }
