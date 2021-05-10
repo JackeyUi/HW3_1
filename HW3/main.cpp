@@ -1,3 +1,5 @@
+#include "math.h"
+#include <stdlib.h>
 #include "mbed.h"
 #include "MQTTNetwork.h"
 #include "MQTTmbed.h"
@@ -16,19 +18,30 @@
 #include "tensorflow/lite/version.h"
 
 #include "uLCD_4DGL.h"
+#include "stm32l475e_iot01_accelero.h"
+
+#define PI 3.14159265
 
 uLCD_4DGL uLCD(D1, D0, D2);
 
+
+double theta;
 int GV = 0;
-int dGU = 1;
+int dGU = 1, dTA = 0;
 char src[10];
 int xx = 0;
 int x = 0;
-int n_src;
+int n_src = 30;
 int y_u;
+int ang_cnt = 0;
+int ang_tri = 0;
+int16_t pXYZ[3] = {0};
+int16_t sXYZ[3] = {0};
+int16_t aXYZ[3] = {0};
 
 EventQueue qGUI(32 * EVENTS_EVENT_SIZE);
 Thread tGUI(osPriorityNormal, 4 * OS_STACK_SIZE);
+Thread tANG(osPriorityNormal, 4 * OS_STACK_SIZE);
 Thread bt;
 
 // GLOBAL VARIABLES
@@ -47,15 +60,25 @@ Thread mqtt_thread(osPriorityHigh);
 EventQueue mqtt_queue;
 
 void doGUI(Arguments *in, Reply *out);
-//void doANG(Arguments *in, Reply *out);
+void doANG(Arguments *in, Reply *out);
 RPCFunction rpcGUI(&doGUI, "doGUI");
-//RPCFunction rpcANG(&doANG, "doANG");
+RPCFunction rpcANG(&doANG, "doANG");
 BufferedSerial pc(USBTX, USBRX);
 
 
 void flip1() {
     dGU = !dGU;
 }
+void flip2() {
+    dTA = !dTA;
+}
+void ang_info() {
+   if(!ang_tri)  {
+     ang_tri = 1;
+     sprintf(src, "%lf", theta);
+   }
+}
+
 
 int PredictGesture(float* output) {
   // How many times the most recent gesture has been matched in a row
@@ -194,6 +217,11 @@ int main() {
     
    while(1) {
      btn2.rise(mqtt_queue.event(&publish_message, &client));
+     while(ang_tri) {
+       mqtt_queue.call(&publish_message, &client);
+       ang_tri = 0;
+     }
+     if(!dTA){
       memset(buf, 0, 256);
       for (int i = 0; ; i++) {
           char recv = fgetc(devin);
@@ -203,14 +231,9 @@ int main() {
           }
           buf[i] = fputc(recv, devout);
       }
-      //Call the static call method on the RPC class
       RPC::call(buf, outbuf);
       printf("%s\r\n", outbuf);
-      
-      /*if(dGU == 0 && xx == 0) {
-        mqtt_queue.event(&publish_message, &client);
-        xx = 1;
-      } */
+     }
    }
 
 
@@ -312,10 +335,52 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
    printf("stopping GUI mode\n");
 }
 
+void ANGM() {
+   
+   printf("Start accelerometer init\n");
+   BSP_ACCELERO_Init();
+   printf("Please place the mbed on table stationaryly for 5s\n");
+   for(int n = 5; n >= 1; n--) {
+     printf("%d\n", n);
+     ThisThread::sleep_for(1s);
+   }
+   BSP_ACCELERO_AccGetXYZ(sXYZ);
+   printf("The reference vector is (%d, %d, %d)\n", sXYZ[0], sXYZ[1], sXYZ[2]);
+   while(dTA) {
+     BSP_ACCELERO_AccGetXYZ(pXYZ);
+     aXYZ[0] = pXYZ[0] - sXYZ[0];
+     aXYZ[1] = pXYZ[1] - sXYZ[1];
+     aXYZ[2] = pXYZ[2] - sXYZ[2];
+     printf("The vector is (%d, %d, %d)\n", aXYZ[0], aXYZ[1], aXYZ[2]);
+     float ax = -(float) aXYZ[0];
+     float sz = (float) sXYZ[2];
+     theta = asin(ax/sz) * 180 / PI;
+     printf("%lf\n", theta);
+     if(theta >= n_src) {
+          ang_cnt++;
+          ang_info();
+     }
+     ThisThread::sleep_for(500ms);
+   }
+
+}
+
 void doGUI(Arguments *in, Reply *out) {
     x = in->getArg<int>();
-    if(x)
-    tGUI.start(GUIM);
+    if(x) {
+      //flip1();
+      tGUI.start(GUIM);
+    }
     else 
     flip1();
+}
+
+void doANG(Arguments *in, Reply *out) {
+    x = in->getArg<int>();
+    if(x){
+      flip2();
+      tANG.start(ANGM);
+    }
+    else 
+    flip2();
 }
