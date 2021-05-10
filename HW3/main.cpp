@@ -22,9 +22,12 @@ uLCD_4DGL uLCD(D1, D0, D2);
 int GV = 0;
 int dGU = 1;
 char src[10];
+int xx = 0;
+int x = 0;
 
 EventQueue qGUI(32 * EVENTS_EVENT_SIZE);
 Thread tGUI(osPriorityNormal, 4 * OS_STACK_SIZE);
+Thread bt;
 
 // GLOBAL VARIABLES
 constexpr int kTensorArenaSize = 20 * 1024;
@@ -108,7 +111,7 @@ void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
     message_num++;
     MQTT::Message message;
     char buff[100];
-    sprintf(buff, "QoS0 Hello, Python! #%d", message_num);
+    sprintf(buff, "%s #%d", src,message_num);
     message.qos = MQTT::QOS0;
     message.retained = false;
     message.dup = false;
@@ -183,9 +186,10 @@ int main() {
    FILE *devin = fdopen(&pc, "r");
    FILE *devout = fdopen(&pc, "w");
 
-    mqtt_thread.start(callback(&mqtt_queue, &EventQueue::dispatch_forever));
-    btn2.rise(mqtt_queue.event(&publish_message, &client));
+  mqtt_thread.start(callback(&mqtt_queue, &EventQueue::dispatch_forever));
+    
    while(1) {
+     btn2.rise(mqtt_queue.event(&publish_message, &client));
       memset(buf, 0, 256);
       for (int i = 0; ; i++) {
           char recv = fgetc(devin);
@@ -198,10 +202,11 @@ int main() {
       //Call the static call method on the RPC class
       RPC::call(buf, outbuf);
       printf("%s\r\n", outbuf);
-      if(dGU = 0) {
+      
+      /*if(dGU == 0 && xx == 0) {
         mqtt_queue.event(&publish_message, &client);
-        dGU = 1;
-      } 
+        xx = 1;
+      } */
    }
 
 
@@ -211,6 +216,7 @@ int main() {
 }
 
 void GUIM() {
+  dGU = 1;
   // Whether we should clear the buffer next time we fetch data
   bool should_clear_buffer = false;
   bool got_data = false;
@@ -257,7 +263,7 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
 
   TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 
-  error_reporter->Report("Set up successful...\n");
+  error_reporter->Report("Set up successful...\n\r");
 
  
  while (dGU) {
@@ -288,17 +294,20 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
     // Produce an output
     if (gesture_index < label_num) {
       strcpy(src,config.output_message[gesture_index]);
-      error_reporter->Report(config.output_message[gesture_index]);
-      printf("%d\n", dGU);
+      //error_reporter->Report(config.output_message[gesture_index]);
+      printf("%s", src);
+      //printf("%d\n\r", dGU);
       uLCD.locate(1,1);
       uLCD.printf("%s", src);
     }
-    btn2.rise(&flip1);
-    
   }
-  printf("stopping gesture UI\n");
+   printf("stopping GUI mode\n");
 }
 
 void doGUI(Arguments *in, Reply *out) {
+    x = in->getArg<int>();
+    if(x)
     tGUI.start(GUIM);
+    else 
+    flip1();
 }
