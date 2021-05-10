@@ -24,6 +24,8 @@ int dGU = 1;
 char src[10];
 int xx = 0;
 int x = 0;
+int n_src;
+int y_u;
 
 EventQueue qGUI(32 * EVENTS_EVENT_SIZE);
 Thread tGUI(osPriorityNormal, 4 * OS_STACK_SIZE);
@@ -111,7 +113,7 @@ void publish_message(MQTT::Client<MQTTNetwork, Countdown>* client) {
     message_num++;
     MQTT::Message message;
     char buff[100];
-    sprintf(buff, "%s #%d", src,message_num);
+    sprintf(buff, "%s", src);
     message.qos = MQTT::QOS0;
     message.retained = false;
     message.dup = false;
@@ -129,10 +131,12 @@ void close_mqtt() {
 
 int main() {
  
-  uLCD.text_width(4); //4X size text
-  uLCD.text_height(4);
+  uLCD.text_width(2); //4X size text
+  uLCD.text_height(2);
+  uLCD.locate(1,1);
   uLCD.color(RED);
   printf("Set up uLCD.\r\n");
+  uLCD.printf("30\n 45\n 60");
     wifi = WiFiInterface::get_default_instance();
     if (!wifi) {
             printf("ERROR: No WiFiInterface found.\r\n");
@@ -295,10 +299,14 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
     if (gesture_index < label_num) {
       strcpy(src,config.output_message[gesture_index]);
       //error_reporter->Report(config.output_message[gesture_index]);
-      printf("%s", src);
+      printf("%s\n\r", src);
+      uLCD.locate(3,y_u);
+      uLCD.printf("   ");
       //printf("%d\n\r", dGU);
-      uLCD.locate(1,1);
-      uLCD.printf("%s", src);
+      n_src = atoi(src);
+      y_u = n_src/15 - 1;
+      uLCD.locate(3,y_u);
+      uLCD.printf("<-");
     }
   }
    printf("stopping GUI mode\n");
