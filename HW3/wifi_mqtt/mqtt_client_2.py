@@ -1,7 +1,7 @@
 import paho.mqtt.client as paho
 import serial
 import time
-serdev = '/dev/ttyACM0'
+serdev = '/dev/ttyACM1'
 s = serial.Serial(serdev, 9600)
 
 # https://os.mbed.com/teams/mqtt/wiki/Using-MQTT#python-client

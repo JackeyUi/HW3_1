@@ -23,6 +23,9 @@
 #define PI 3.14159265
 
 uLCD_4DGL uLCD(D1, D0, D2);
+DigitalOut led1(LED1);
+DigitalOut led2(LED2);
+DigitalOut led3(LED3);
 
 
 double theta;
@@ -159,7 +162,7 @@ int main() {
   uLCD.locate(1,1);
   uLCD.color(RED);
   printf("Set up uLCD.\r\n");
-  uLCD.printf("30\n 45\n 60");
+  
     wifi = WiFiInterface::get_default_instance();
     if (!wifi) {
             printf("ERROR: No WiFiInterface found.\r\n");
@@ -243,6 +246,7 @@ int main() {
 }
 
 void GUIM() {
+  uLCD.printf("30\n 45\n 60");
   dGU = 1;
   // Whether we should clear the buffer next time we fetch data
   bool should_clear_buffer = false;
@@ -291,7 +295,7 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
   TfLiteStatus setup_status = SetupAccelerometer(error_reporter);
 
   error_reporter->Report("Set up successful...\n\r");
-
+  led1 = 1; 
  
  while (dGU) {
 
@@ -332,37 +336,52 @@ static tflite::MicroOpResolver<6> micro_op_resolver;
       uLCD.printf("<-");
     }
   }
+   led1 = 0;
    printf("stopping GUI mode\n");
 }
 
 void ANGM() {
-   
+   led2 = 1;
+   int ooo = 0;
    printf("Start accelerometer init\n");
    BSP_ACCELERO_Init();
    printf("Please place the mbed on table stationaryly for 5s\n");
    for(int n = 5; n >= 1; n--) {
+     led3 = 1;
      printf("%d\n", n);
      ThisThread::sleep_for(1s);
    }
    BSP_ACCELERO_AccGetXYZ(sXYZ);
    printf("The reference vector is (%d, %d, %d)\n", sXYZ[0], sXYZ[1], sXYZ[2]);
-   while(dTA) {
+   led3 = 0;
+   while(dTA) {   
      BSP_ACCELERO_AccGetXYZ(pXYZ);
      aXYZ[0] = pXYZ[0] - sXYZ[0];
      aXYZ[1] = pXYZ[1] - sXYZ[1];
      aXYZ[2] = pXYZ[2] - sXYZ[2];
-     printf("The vector is (%d, %d, %d)\n", aXYZ[0], aXYZ[1], aXYZ[2]);
+     //printf("The vector is (%d, %d, %d)\n", aXYZ[0], aXYZ[1], aXYZ[2]);
      float ax = -(float) aXYZ[0];
      float sz = (float) sXYZ[2];
      theta = asin(ax/sz) * 180 / PI;
      printf("%lf\n", theta);
      if(theta >= n_src) {
           ang_cnt++;
+          ooo++;
           ang_info();
      }
+     uLCD.cls();
+     uLCD.text_width(4); //4X size text
+     uLCD.text_height(4);
+     uLCD.color(WHITE);
+     uLCD.locate(1,1);
+     uLCD.printf("%d",(int)theta);
      ThisThread::sleep_for(500ms);
-   }
-
+     if(ooo == 10) break;
+    }
+  flip2();
+  ThisThread::sleep_for(1s);
+  led2 = 0;
+  printf("The angle detaction is over, back to the RPC loop\n");
 }
 
 void doGUI(Arguments *in, Reply *out) {
@@ -381,6 +400,4 @@ void doANG(Arguments *in, Reply *out) {
       flip2();
       tANG.start(ANGM);
     }
-    else 
-    flip2();
 }

@@ -3,24 +3,31 @@ import serial
 import time
 serdev = '/dev/ttyACM0'
 s = serial.Serial(serdev, 9600)
-
+n = 1
 # https://os.mbed.com/teams/mqtt/wiki/Using-MQTT#python-client
-
 # MQTT broker hosted on local machine
 mqttc = paho.Client()
-
 # Settings for connection
 # TODO: revise host to your IP
 host = "192.168.43.71"
 topic = "Mbed"
-
 # Callbacks
 def on_connect(self, mosq, obj, rc):
     print("Connected rc: " + str(rc))
 
 def on_message(mosq, obj, msg):
-    print("[Received] Topic: " + msg.topic + ", Message: " + str(msg.payload) + "\n");
-    s.write(bytes("/doGUI/run 0\r", 'UTF-8'))
+    global n
+    print("[Received] Topic: " + msg.topic + ", Message: " + str(msg.payload) + "\n")
+    #print(n ,"\n")
+    if n == 1:
+        s.write(bytes("/doGUI/run 0\r", 'UTF-8'))
+        n += 1
+    elif n < 11:
+        n += 1
+    elif n == 11:
+        s.write(bytes("/doANG/run 0\r", 'UTF-8'))
+        n += 1
+
 def on_subscribe(mosq, obj, mid, granted_qos):
     print("Subscribed OK")
 
