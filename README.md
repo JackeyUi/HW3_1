@@ -15,4 +15,5 @@ Now the mbed is back in RPC loop
 9. The uLCD would start displaying the angle of mbed, if the detected angle is larger than the previous selection in gestrue UI, mbed would send the angle to python(by wifi)
 10. After python receive 10 angle values, it would send a command ("/doANG/run 0") to the mbed to stop the angle detection.
 Now the mbed is in RPC loop
-
+# the demo video
+https://youtu.be/fvcyu7RrL28
